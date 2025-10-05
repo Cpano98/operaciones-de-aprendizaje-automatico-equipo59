@@ -1,2 +1,8 @@
-# operaciones-de-aprendizaje-automatico-equipo59
-Gpo 10
+
+### Installing mlFlow and initializing project
+
+```
+pip install mlflow
+cd AbsenteeismAtWork
+mlflow ui
+```
