@@ -1,0 +1,5 @@
+outs:
+- md5: a60391b2d9d54ca89001d7257844818e
+  size: 40999
+  hash: md5
+  path: work_absenteeism_clean.csv
