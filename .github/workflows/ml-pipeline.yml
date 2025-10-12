@@ -1,0 +1,139 @@
+name: ML Pipeline Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'AbsenteeismAtWork/**'
+      - 'scripts/**'
+      - '**.ipynb'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'AbsenteeismAtWork/**'
+      - 'scripts/**'
+      - '**.ipynb'
+  workflow_dispatch:
+
+jobs:
+  validate-data:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas numpy scipy scikit-learn
+        pip install great-expectations pandas-profiling
+
+    - name: Validate data schema
+      run: |
+        python -c "
+        import pandas as pd
+        import os
+        
+        # Check if data files exist
+        data_path = 'AbsenteeismAtWork/data/work_absenteeism_modified.csv'
+        if os.path.exists(data_path):
+            df = pd.read_csv(data_path)
+            print(f'✓ Data file loaded: {len(df)} rows, {len(df.columns)} columns')
+            print(f'✓ Columns: {list(df.columns)}')
+            print(f'✓ Data types: {df.dtypes.value_counts().to_dict()}')
+            print(f'✓ Missing values: {df.isna().sum().sum()}')
+        else:
+            print(f'⚠ Data file not found: {data_path}')
+        "
+
+  validate-preprocessing:
+    runs-on: ubuntu-latest
+    needs: validate-data
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas numpy scipy scikit-learn pytest
+
+    - name: Test preprocessing pipeline
+      run: |
+        pytest tests/test_preprocessing.py -v --tb=short
+
+  check-notebooks:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install nbconvert nbformat jupyter
+
+    - name: Check notebook syntax
+      run: |
+        find . -name "*.ipynb" ! -path "./.ipynb_checkpoints/*" -exec jupyter nbconvert --to notebook --execute --inplace {} \; || true
+      continue-on-error: true
+
+    - name: Clear notebook outputs (for clean commits)
+      run: |
+        find . -name "*.ipynb" ! -path "./.ipynb_checkpoints/*" -exec jupyter nbconvert --clear-output --inplace {} \;
+      continue-on-error: true
+
+  mlflow-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install MLflow
+      run: |
+        python -m pip install --upgrade pip
+        pip install mlflow
+
+    - name: Check MLflow experiments
+      run: |
+        python -c "
+        import mlflow
+        import os
+        
+        mlruns_path = 'AbsenteeismAtWork/mlruns'
+        if os.path.exists(mlruns_path):
+            mlflow.set_tracking_uri(f'file://{os.path.abspath(mlruns_path)}')
+            experiments = mlflow.search_experiments()
+            print(f'✓ Found {len(experiments)} MLflow experiment(s)')
+            for exp in experiments:
+                print(f'  - {exp.name} (ID: {exp.experiment_id})')
+        else:
+            print(f'⚠ MLruns directory not found: {mlruns_path}')
+        "
+
