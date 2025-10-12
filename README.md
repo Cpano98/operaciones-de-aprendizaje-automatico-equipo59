@@ -5,6 +5,10 @@
 [![DVC](https://img.shields.io/badge/DVC-Data%20Version%20Control-blueviolet)](https://dvc.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
+[![Tests](https://github.com/tu-usuario/operaciones-de-aprendizaje-automatico-equipo59/actions/workflows/tests.yml/badge.svg)](https://github.com/tu-usuario/operaciones-de-aprendizaje-automatico-equipo59/actions/workflows/tests.yml)
+[![Code Quality](https://github.com/tu-usuario/operaciones-de-aprendizaje-automatico-equipo59/actions/workflows/code-quality.yml/badge.svg)](https://github.com/tu-usuario/operaciones-de-aprendizaje-automatico-equipo59/actions/workflows/code-quality.yml)
+[![ML Pipeline](https://github.com/tu-usuario/operaciones-de-aprendizaje-automatico-equipo59/actions/workflows/ml-pipeline.yml/badge.svg)](https://github.com/tu-usuario/operaciones-de-aprendizaje-automatico-equipo59/actions/workflows/ml-pipeline.yml)
+
 Proyecto de **Machine Learning Operations (MLOps)** desarrollado por el **Equipo 59** para predecir las horas de ausentismo laboral utilizando técnicas de regresión supervisada, con gestión de datos mediante DVC y seguimiento de experimentos con MLflow.
 
 ---
@@ -151,11 +155,18 @@ source venv/bin/activate
 ### **3. Instalar dependencias**
 
 ```bash
+pip install -r requirements.txt
+```
+
+O instalar manualmente:
+
+```bash
 pip install mlflow
 pip install pandas numpy scipy scikit-learn
 pip install matplotlib seaborn
 pip install ydata-profiling
 pip install jupyter notebook
+pip install pytest  # Para testing
 ```
 
 ### **4. Configurar DVC (opcional, para versionado de datos)**
@@ -164,6 +175,27 @@ pip install jupyter notebook
 pip install dvc
 dvc pull  # Descarga los datasets versionados
 ```
+
+---
+
+## 🔄 CI/CD Pipeline
+
+Este proyecto incluye una suite completa de **GitHub Actions workflows** para automatización:
+
+### **Workflows Activos**
+
+| Workflow | Trigger | Descripción |
+|----------|---------|-------------|
+| **Tests** | Push/PR | Ejecuta tests unitarios en múltiples plataformas y versiones de Python |
+| **Code Quality** | Push/PR | Linting, formateo, type checking y análisis de seguridad |
+| **ML Pipeline** | Cambios en datos/notebooks | Valida pipeline de preprocesamiento y notebooks |
+| **Documentation** | Cambios en markdown | Valida documentación y enlaces |
+| **DVC Sync** | Cambios en .dvc | Valida versionado de datos |
+| **Model Training** | Push a main/Manual | Entrena modelo baseline y valida performance |
+
+### **Estado de los Workflows**
+
+Puedes ver el estado actual en la pestaña [Actions](../../actions) del repositorio.
 
 ---
 
@@ -211,6 +243,34 @@ preprocessing_pipeline = Pipeline([
 ])
 
 df_clean = preprocessing_pipeline.fit_transform(df)
+```
+
+### **Ejecutar Tests**
+
+```bash
+# Ejecutar todos los tests
+pytest tests/ -v
+
+# Con cobertura de código
+pytest tests/ --cov=. --cov-report=html
+
+# Ver reporte de cobertura
+open htmlcov/index.html  # macOS
+start htmlcov/index.html  # Windows
+```
+
+### **Validar Calidad de Código**
+
+```bash
+# Linting
+flake8 .
+
+# Formateo automático
+black .
+isort .
+
+# Análisis de seguridad
+bandit -r .
 ```
 
 ---

@@ -1,0 +1,104 @@
+name: DVC Sync
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - '**.dvc'
+      - '.dvc/**'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - '**.dvc'
+      - '.dvc/**'
+  workflow_dispatch:
+
+jobs:
+  dvc-validation:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install DVC
+      run: |
+        python -m pip install --upgrade pip
+        pip install dvc
+
+    - name: Check DVC files
+      run: |
+        echo "Checking DVC configuration..."
+        if [ -f .dvc/config ]; then
+          echo "✓ DVC config found"
+          cat .dvc/config
+        else
+          echo "⚠ No DVC config found"
+        fi
+        
+        echo ""
+        echo "Checking .dvc files..."
+        find . -name "*.dvc" -type f
+        
+        echo ""
+        echo "DVC status:"
+        dvc status || echo "⚠ DVC status check failed (this is normal if remote is not configured)"
+
+    - name: Validate DVC files
+      run: |
+        python -c "
+        import os
+        import yaml
+        
+        dvc_files = []
+        for root, dirs, files in os.walk('.'):
+            for file in files:
+                if file.endswith('.dvc'):
+                    dvc_files.append(os.path.join(root, file))
+        
+        print(f'Found {len(dvc_files)} DVC file(s):')
+        for dvc_file in dvc_files:
+            print(f'  ✓ {dvc_file}')
+            with open(dvc_file, 'r') as f:
+                content = yaml.safe_load(f)
+                if 'outs' in content:
+                    for out in content['outs']:
+                        print(f'    - Tracks: {out.get(\"path\", \"unknown\")}')
+                        print(f'    - MD5: {out.get(\"md5\", \"unknown\")}')
+                        print(f'    - Size: {out.get(\"size\", \"unknown\")} bytes')
+        "
+
+  # Uncomment this job when you have DVC remote storage configured
+  # dvc-pull:
+  #   runs-on: ubuntu-latest
+  #   needs: dvc-validation
+  #   
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
+  #
+  #   - name: Set up Python
+  #     uses: actions/setup-python@v5
+  #     with:
+  #       python-version: '3.11'
+  #
+  #   - name: Install DVC
+  #     run: |
+  #       python -m pip install --upgrade pip
+  #       pip install dvc dvc-gdrive  # or dvc-s3, dvc-azure, etc.
+  #
+  #   - name: Configure DVC remote
+  #     env:
+  #       DVC_REMOTE_PASSWORD: ${{ secrets.DVC_REMOTE_PASSWORD }}
+  #     run: |
+  #       dvc remote modify myremote password $DVC_REMOTE_PASSWORD
+  #
+  #   - name: Pull data with DVC
+  #     run: |
+  #       dvc pull
+

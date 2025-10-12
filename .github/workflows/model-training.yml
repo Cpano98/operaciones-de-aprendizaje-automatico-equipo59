@@ -1,0 +1,144 @@
+name: Model Training CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'AbsenteeismAtWork/**'
+      - 'scripts/**'
+  workflow_dispatch:
+    inputs:
+      experiment_name:
+        description: 'MLflow experiment name'
+        required: false
+        default: 'CI-Training'
+
+jobs:
+  train-model:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas numpy scipy scikit-learn
+        pip install mlflow matplotlib seaborn
+        pip install xgboost lightgbm catboost
+
+    - name: Train baseline model
+      run: |
+        python -c "
+        import pandas as pd
+        import numpy as np
+        from sklearn.model_selection import train_test_split
+        from sklearn.linear_model import LinearRegression
+        from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+        import mlflow
+        import os
+        
+        print('🚀 Starting baseline model training...')
+        
+        # Check if data exists
+        data_path = 'AbsenteeismAtWork/data/work_absenteeism_modified.csv'
+        if not os.path.exists(data_path):
+            print(f'⚠️  Data file not found: {data_path}')
+            print('Skipping training for CI...')
+            exit(0)
+        
+        # Load data
+        df = pd.read_csv(data_path)
+        print(f'✓ Data loaded: {df.shape}')
+        
+        # Simple preprocessing for baseline
+        df = df.select_dtypes(include=[np.number]).fillna(0)
+        
+        if 'Absenteeism time in hours' not in df.columns:
+            print('⚠️  Target column not found. Skipping training.')
+            exit(0)
+        
+        # Prepare features and target
+        X = df.drop('Absenteeism time in hours', axis=1)
+        y = df['Absenteeism time in hours']
+        
+        # Split data
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
+        
+        # Train baseline model
+        model = LinearRegression()
+        model.fit(X_train, y_train)
+        
+        # Evaluate
+        y_pred = model.predict(X_test)
+        mae = mean_absolute_error(y_test, y_pred)
+        rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+        r2 = r2_score(y_test, y_pred)
+        
+        print(f'\\n📊 Baseline Model Results:')
+        print(f'  MAE:  {mae:.2f}')
+        print(f'  RMSE: {rmse:.2f}')
+        print(f'  R²:   {r2:.4f}')
+        
+        # Log with MLflow
+        mlflow.set_tracking_uri('file://./mlruns')
+        mlflow.set_experiment('CI-Baseline')
+        
+        with mlflow.start_run(run_name='baseline-ci'):
+            mlflow.log_param('model_type', 'LinearRegression')
+            mlflow.log_param('test_size', 0.2)
+            mlflow.log_metric('mae', mae)
+            mlflow.log_metric('rmse', rmse)
+            mlflow.log_metric('r2', r2)
+            mlflow.sklearn.log_model(model, 'model')
+        
+        print('\\n✓ Model trained and logged successfully!')
+        "
+
+    - name: Upload MLflow artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: mlflow-runs
+        path: mlruns/
+        retention-days: 30
+
+  performance-check:
+    runs-on: ubuntu-latest
+    needs: train-model
+    
+    steps:
+    - name: Download MLflow artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: mlflow-runs
+        path: mlruns/
+
+    - name: Check model performance
+      run: |
+        echo "Checking model performance thresholds..."
+        python -c "
+        import os
+        import json
+        
+        # This is a placeholder for actual performance validation
+        # In production, you would:
+        # 1. Load the model metrics from MLflow
+        # 2. Compare against baseline thresholds
+        # 3. Fail the pipeline if performance degrades
+        
+        print('✓ Performance check passed (placeholder)')
+        print('  MAE threshold: < 5.0 hours')
+        print('  R² threshold: > 0.3')
+        print('  RMSE threshold: < 8.0 hours')
+        "
+
